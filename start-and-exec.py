@@ -13,8 +13,10 @@ def wait_til_started(instance):
         print " state:", state
 
 conn = boto.ec2.connect_to_region("ap-southeast-2")
+ubuntu_ami = 'ami-e94e5e8a'
+tensorflow_ami = 'ami-52332031'
 reservation = conn.run_instances(
-    'ami-e94e5e8a',
+    tensorflow_ami,
     key_name='AWSKey02',
     instance_type='t2.micro',
     security_groups=['launch-wizard-2']
