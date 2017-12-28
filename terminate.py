@@ -1,11 +1,22 @@
 #/usr/bin/python
  
-import boto.ec2
+import boto3
+import pprint as pp
 
-conn = boto.ec2.connect_to_region("ap-southeast-2")
-instances = conn.get_only_instances()
-for instance in instances:
-    if 'myinstance' in instance.tags:
-        if instance.state in ('running', 'stopped', 'pending'):
-            print 'Terminating ' + instance.public_dns_name
-            instance.terminate()
+ec2 = boto3.client('ec2')
+reservations = ec2.describe_instances(Filters=[
+    {
+        'Name':'tag-key',
+        'Values':['myinstance']
+    },
+    {
+        'Name': 'instance-state-name',
+        'Values': ['pending','running']
+    }
+
+])
+# pp.pprint(reservations)
+iids = [res[u'Instances'][0][u'InstanceId'] for res in reservations[u'Reservations']]
+print('terminating...')
+print(iids)
+if iids: ec2.terminate_instances(InstanceIds=iids)
