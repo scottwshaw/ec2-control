@@ -3,21 +3,15 @@
 import boto3
 import pprint as pp
 import fabric
-from fabric.api import env, run
+from fabric.api import env, run, settings
 from time import sleep
 
-def hostname():
-    print('hostname is ' + run('hostname'))
+UBUNTU_AMI = 'ami-e94e5e8a'
+LINUX_AMI = 'ami-ff4ea59d'
+TENSORFLOW_AMI = 'ami-52332031'
+DEEP_LEARNING_WITH_SOURCE_CODE_AMI = 'ami-bf866bdd'
 
-def mytask():
-    hostname()
-
-def execute_remote_task(host):
-    env.hosts = ['ec2-user@' + host]
-    env.key_filename = 'AWSKey02.pem'
-    fabric.tasks.execute(mytask)
-
-def launch_instance(ami):
+def launch_instance(ec2, ami):
     tag_spec = [{'ResourceType':'instance','Tags':[{'Key':'myinstance', 'Value':''}]}]
     response = ec2.run_instances(ImageId=ami,
                                  InstanceType='t2.micro',
@@ -31,38 +25,72 @@ def launch_instance(ami):
     return iid
 
 
-def host_dns(iid):
+def host_dns(ec2, iid):
     res = ec2.describe_instances(InstanceIds=[instance_id])
     return res[u'Reservations'][0][u'Instances'][0][u'PublicDnsName']
 
-def wait_til_running(iid):
+def wait_til_running(ec2, iid):
     print('waiting for running...')
     running_waiter = ec2.get_waiter(u'instance_running')
     running_waiter.wait(InstanceIds=[instance_id])
     print('instance is running')
-    dns = host_dns(instance_id)
+    dns = host_dns(ec2, instance_id)
     print('host dns is...' + dns)
     return dns
 
-def wait_til_ready(iid):
+def wait_til_ready(ec2, iid):
     print('waiting for ok...')
     ok_waiter = ec2.get_waiter(u'instance_status_ok')
     ok_waiter.wait(InstanceIds=[instance_id])
     print('instance is OK')
 
-def terminate_instance(iid):
+def terminate_instance(ec2, iid):
     print('terminating ' + iid)
     ec2.terminate_instances(InstanceIds=[iid])
 
+def copy_script_to_remote():
+    print('copying to remote...')
+    fabric.operations.put('simple-graph.py','script.py')
+    print('copied')
 
-ec2 = boto3.client('ec2')
-ubuntu_ami = 'ami-e94e5e8a'
-linux_ami = 'ami-ff4ea59d'
-tensorflow_ami = 'ami-52332031'
-deep_learning_with_source_code_ami = 'ami-bf866bdd'
+class FabricException(Exception):
+    pass
 
-instance_id = launch_instance(tensorflow_ami)
-public_dns = wait_til_running(instance_id)
-wait_til_ready(instance_id)
-execute_remote_task(public_dns)
-terminate_instance(instance_id)
+def execute_script(ec2):
+    print('executing...')
+    with settings(abort_exception = FabricException):
+        try:
+            run('python script.py > script-output.txt 2>&1')
+        except FabricException as err:
+            print("remote execution error: {0}".format(err))
+
+def print_output(fname):
+    print('Output fromn script was...')
+    with open(fname, 'r') as fin:
+        print fin.read()
+
+def copy_output_to_local():
+    fname = 'script-output.txt'
+    pname = env.hosts[0] + '/' + fname
+    print('retrieving output to ' + pname)
+    fabric.operations.get(fname)
+    print_output(pname)
+    
+
+def exec_script_remotely(ec2):
+    fabric.tasks.execute(copy_script_to_remote)
+    print('executing on ')
+    print(env.hosts)
+    fabric.tasks.execute(execute_script, ec2, hosts=env.hosts)
+    fabric.tasks.execute(copy_output_to_local)
+
+env.key_filename='AWSKey02.pem'
+ec2_client = boto3.client('ec2')
+instance_id = launch_instance(ec2_client, TENSORFLOW_AMI)
+public_dns = wait_til_running(ec2_client, instance_id)
+# instance_id = 'i-094c8ea7994e7f856'
+# public_dns = 'ec2-52-63-249-43.ap-southeast-2.compute.amazonaws.com'
+env.hosts=['ec2-user@'+public_dns]
+wait_til_ready(ec2_client, instance_id)
+exec_script_remotely(ec2_client)
+terminate_instance(ec2_client, instance_id)
