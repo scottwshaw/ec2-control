@@ -10,11 +10,14 @@ UBUNTU_AMI = 'ami-e94e5e8a'
 LINUX_AMI = 'ami-ff4ea59d'
 TENSORFLOW_AMI = 'ami-52332031'
 DEEP_LEARNING_WITH_SOURCE_CODE_AMI = 'ami-bf866bdd'
+MICRO = 't2.micro'
+P2XL = 'p2.xlarge'
+C4XL = 'c4.xlarge'
 
 def launch_instance(ec2, ami):
     tag_spec = [{'ResourceType':'instance','Tags':[{'Key':'myinstance', 'Value':''}]}]
     response = ec2.run_instances(ImageId=ami,
-                                 InstanceType='t2.micro',
+                                 InstanceType=C4XL,
                                  KeyName='AWSKey02',
                                  SecurityGroups=['launch-wizard-2'],
                                  TagSpecifications=tag_spec,
@@ -50,7 +53,7 @@ def terminate_instance(ec2, iid):
 
 def copy_script_to_remote():
     print('copying to remote...')
-    fabric.operations.put('simple-graph.py','script.py')
+    fabric.operations.put('the-script.py','script.py')
     print('copied')
 
 class FabricException(Exception):
@@ -75,7 +78,6 @@ def copy_output_to_local():
     print('retrieving output to ' + pname)
     fabric.operations.get(fname)
     print_output(pname)
-    
 
 def exec_script_remotely(ec2):
     fabric.tasks.execute(copy_script_to_remote)
@@ -88,8 +90,8 @@ env.key_filename='AWSKey02.pem'
 ec2_client = boto3.client('ec2')
 instance_id = launch_instance(ec2_client, TENSORFLOW_AMI)
 public_dns = wait_til_running(ec2_client, instance_id)
-# instance_id = 'i-094c8ea7994e7f856'
-# public_dns = 'ec2-52-63-249-43.ap-southeast-2.compute.amazonaws.com'
+# instance_id = 'i-00350f77fcb7722f9'
+# public_dns = 'ec2-13-210-162-35.ap-southeast-2.compute.amazonaws.com'
 env.hosts=['ec2-user@'+public_dns]
 wait_til_ready(ec2_client, instance_id)
 exec_script_remotely(ec2_client)

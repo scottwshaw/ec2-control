@@ -8,7 +8,7 @@ e = tf.add( c, b)
 f = tf.subtract( d, e)
 
 sess = tf.Session()
-outs = sess.run( f)
+outs = sess.run(f)
 sess.close()
 print(" outs = {}".format( outs))
 
