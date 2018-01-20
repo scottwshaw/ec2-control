@@ -39,16 +39,15 @@ with g.as_default():
         optimizer = tf.train.GradientDescentOptimizer(learning_rate)
         train = optimizer.minimize(loss)
 
-
-    start_time = time.time()
     # Before starting, initialize the variables.  We will 'run' this first.
     init = tf.global_variables_initializer()
     with tf.Session() as sess:
         sess.run(init)
+        start_time = time.time()
         for step in range(NUM_STEPS):
             sess.run(train,{x: x_data, y_true: y_data})
             if (step % 5 == 0):
-                print(step, sess.run([w,b]))
+                # print(step, sess.run([w,b]))
                 wb_.append(sess.run([w,b]))
 
         elapsed = time.time() - start_time
